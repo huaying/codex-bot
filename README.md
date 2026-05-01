@@ -142,6 +142,9 @@ Discord Developer Portal and update `.env`.
   sent during restart.
 - Successful message-session replies hide job metadata. Failures include status,
   job id, and stderr for debugging.
+- Codex output is sent as Discord Markdown with mentions disabled. Long replies
+  are split across messages with code-fence-aware chunking, and very long replies
+  are attached as `codex-output.txt`.
 - Changing `.env` requires restarting `npm run dev`.
 - Approval prompts from Codex are not implemented as Discord buttons. The current
   mode is sandboxed full-auto, not unrestricted YOLO.

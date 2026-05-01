@@ -9,6 +9,15 @@ import { log } from "./logger.js";
 const STDERR_CAPTURE_LIMIT = 64 * 1024;
 const STDOUT_FALLBACK_CAPTURE_LIMIT = 256 * 1024;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DISCORD_OUTPUT_GUIDANCE = `
+
+Discord response formatting guidance:
+- Format the final answer for Discord Markdown.
+- Prefer concise plain text, bullets, numbered lists, and fenced code blocks.
+- For diagrams, use ASCII diagrams in fenced \`\`\`text code blocks unless the user explicitly asks for Mermaid/source.
+- Do not use unsupported render formats expecting Discord to render diagrams.
+- Do not include @everyone, @here, or user/role mentions unless the user explicitly requests them.
+`;
 
 export interface RunningCodexProcess {
   id: string;
@@ -53,7 +62,7 @@ export function runCodex(config: AppConfig, request: CodexRunRequest): RunningCo
         stderrCapture.push(chunk);
       });
 
-      child.stdin.end(request.prompt);
+      child.stdin.end(`${request.prompt}${DISCORD_OUTPUT_GUIDANCE}`);
 
       const timeout = setTimeout(() => {
         killedByTimeout = true;
