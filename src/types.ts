@@ -18,6 +18,7 @@ export interface AppConfig {
   codexCommand: string;
   codexSandbox: "read-only" | "workspace-write" | "danger-full-access";
   codexFullAuto: boolean;
+  codexYolo: boolean;
   codexModel?: string;
   codexProfile?: string;
   codexTimeoutMs: number;

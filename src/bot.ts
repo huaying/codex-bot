@@ -21,6 +21,7 @@ import {
 import { log } from "./logger.js";
 import { registerCommands } from "./commands.js";
 import { SessionStore } from "./sessionStore.js";
+import { markRestartReady, startReplacementProcess } from "./restart.js";
 
 interface QueuedPrompt {
   message: Message;
@@ -67,12 +68,23 @@ export class CodexDiscordBot {
   private registerHandlers(): void {
     this.client.once(Events.ClientReady, (client) => {
       log("info", `discord bot ready: ${client.user.tag} (${client.user.id})`);
-      if (this.config.enableMessageSessions) {
-        this.catchUpRecentDms().catch((error) => {
-          log("error", "failed to catch up recent DMs", {
-            error: error instanceof Error ? error.message : String(error),
-          });
+      const restartHandoff = process.env.CODEX_RESTART_HANDOFF === "1";
+      delete process.env.CODEX_RESTART_HANDOFF;
+      markRestartReady().catch((error) => {
+        log("error", "failed to mark replacement bot ready", {
+          error: error instanceof Error ? error.message : String(error),
         });
+      });
+      if (this.config.enableMessageSessions) {
+        if (restartHandoff) {
+          log("info", "skipping recent DM catch-up during restart handoff");
+        } else {
+          this.catchUpRecentDms().catch((error) => {
+            log("error", "failed to catch up recent DMs", {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
+        }
         if (this.config.enableDmPolling) {
           this.startDmPolling().catch((error) => {
             log("error", "failed to start DM polling", {
@@ -169,6 +181,9 @@ export class CodexDiscordBot {
         break;
       case "workspaces":
         await this.handleWorkspaces(interaction);
+        break;
+      case "restart":
+        await this.handleRestart(interaction);
         break;
       default:
         await interaction.reply({ content: `Unknown subcommand: ${subcommand}`, ephemeral: true });
@@ -325,6 +340,31 @@ export class CodexDiscordBot {
 
   private async handleWorkspaces(interaction: ChatInputCommandInteraction): Promise<void> {
     await interaction.reply({ content: trimForDiscord(this.formatWorkspaces()), ephemeral: true });
+  }
+
+  private async handleRestart(interaction: ChatInputCommandInteraction): Promise<void> {
+    const force = interaction.options.getBoolean("force") ?? false;
+    const runningJobs = this.jobs.status();
+    if (runningJobs.length > 0 && !force) {
+      await interaction.reply({
+        content: `Refusing to restart with ${runningJobs.length} running job(s). Use \`force:true\` to restart anyway.`,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+    try {
+      const replacement = await startReplacementProcess(this.config);
+      await safeEditReply(
+        interaction,
+        `Replacement bot is ready${replacement.pid ? ` (pid ${replacement.pid})` : ""}. Stopping this process now.`,
+      );
+      this.exitSoon();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await safeEditReply(interaction, `Restart failed; current process is still running.\n${trimForDiscord(message, 1200)}`);
+    }
   }
 
   private async handleMessage(message: Message): Promise<void> {
@@ -575,7 +615,38 @@ export class CodexDiscordBot {
       );
       return true;
     }
+    if (normalized === "/restart" || normalized === "/restart force") {
+      await this.handleMessageRestart(message, normalized.endsWith(" force"));
+      return true;
+    }
     return false;
+  }
+
+  private async handleMessageRestart(message: Message, force: boolean): Promise<void> {
+    const runningJobs = this.jobs.status();
+    if (runningJobs.length > 0 && !force) {
+      await message.reply(`Refusing to restart with ${runningJobs.length} running job(s). Use \`/restart force\` to restart anyway.`);
+      return;
+    }
+
+    const status = await message.reply("Starting replacement bot process...");
+    try {
+      const replacement = await startReplacementProcess(this.config);
+      await status.edit(
+        `Replacement bot is ready${replacement.pid ? ` (pid ${replacement.pid})` : ""}. Stopping this process now.`,
+      );
+      this.exitSoon();
+    } catch (error) {
+      const restartError = error instanceof Error ? error.message : String(error);
+      await status.edit(`Restart failed; current process is still running.\n${trimForDiscord(restartError, 1200)}`);
+    }
+  }
+
+  private exitSoon(): void {
+    setTimeout(() => {
+      this.client.destroy();
+      process.exit(0);
+    }, 750).unref();
   }
 
   private enqueueMessagePrompt(prompt: QueuedPrompt): void {

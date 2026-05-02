@@ -10,6 +10,7 @@ async function main(): Promise<void> {
     defaultWorkspaceId: config.defaultWorkspaceId,
     sandbox: config.codexSandbox,
     fullAuto: config.codexFullAuto,
+    yolo: config.codexYolo,
   });
 
   const bot = new CodexDiscordBot(config);

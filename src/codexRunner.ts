@@ -120,15 +120,15 @@ function buildCodexArgs(
     ? ["exec", "resume", "--json"]
     : ["exec", "--json"];
 
-  if (config.codexFullAuto) args.push("--full-auto");
+  if (config.codexYolo) {
+    args.push("--dangerously-bypass-approvals-and-sandbox");
+  } else if (config.codexFullAuto) {
+    args.push("--full-auto");
+  }
 
   if (!resumeSessionId) {
-    args.push(
-      "--cd",
-      workspacePath,
-      "--sandbox",
-      config.codexSandbox,
-    );
+    args.push("--cd", workspacePath);
+    if (!config.codexYolo) args.push("--sandbox", config.codexSandbox);
   }
 
   args.push("--skip-git-repo-check", "--output-last-message", outputPath);

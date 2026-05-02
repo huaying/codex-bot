@@ -64,6 +64,17 @@ export function buildCommands(config: AppConfig): ReturnType<SlashCommandBuilder
       sub
         .setName("workspaces")
         .setDescription("List allowed workspaces"),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("restart")
+        .setDescription("Start a replacement bot process, then stop this one")
+        .addBooleanOption((option) =>
+          option
+            .setName("force")
+            .setDescription("Restart even if Codex jobs are currently running")
+            .setRequired(false),
+        ),
     );
 
   return [codex.toJSON()];

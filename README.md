@@ -71,6 +71,7 @@ Useful message controls:
 
 ```text
 /status
+/restart
 /new
 /close
 /workspaces
@@ -80,6 +81,9 @@ Useful message controls:
 ```
 
 - `/status` shows the current saved session and workspace.
+- `/restart` starts a replacement bot process, waits for it to become ready,
+  then stops the old process. Use `/restart force` only if running jobs may be
+  interrupted.
 - `/new` clears the current Codex thread; the next prompt starts fresh.
 - `/close` clears the current thread and cancels any running job in the channel.
 - `/workspaces` lists first-level workspaces discovered from `WORKSPACE_ROOTS`.
@@ -129,7 +133,12 @@ If both are set, manual `WORKSPACES` aliases win when ids overlap.
 - `.env`, `.data`, `node_modules`, and `dist` are ignored by git.
 - Default execution is `CODEX_SANDBOX=workspace-write`.
 - `CODEX_FULL_AUTO=true` runs `codex exec --full-auto` in the sandbox.
-- The bridge rejects `--dangerously-bypass-approvals-and-sandbox`.
+- `CODEX_YOLO=true` runs Codex with
+  `--dangerously-bypass-approvals-and-sandbox` for both new and resumed sessions.
+  Set `CODEX_FULL_AUTO=false` when enabling it.
+- The bridge rejects ad hoc `--dangerously-bypass-approvals-and-sandbox` and
+  `--yolo` entries in `CODEX_EXTRA_ARGS_JSON`; YOLO mode must be enabled
+  explicitly with `CODEX_YOLO=true`.
 
 If a bot token was pasted into chat or committed, reset it immediately in the
 Discord Developer Portal and update `.env`.
@@ -145,9 +154,11 @@ Discord Developer Portal and update `.env`.
 - Codex output is sent as Discord Markdown with mentions disabled. Long replies
   are split across messages with code-fence-aware chunking, and very long replies
   are attached as `codex-output.txt`.
-- Changing `.env` requires restarting `npm run dev`.
-- Approval prompts from Codex are not implemented as Discord buttons. The current
-  mode is sandboxed full-auto, not unrestricted YOLO.
+- `.env` is loaded with override enabled; changing `.env` requires restarting
+  `npm run dev` or `npm start`.
+- Approval prompts from Codex are not implemented as Discord buttons. Use
+  `CODEX_YOLO=true` only when the host environment is allowed to run
+  unrestricted commands.
 
 ## Development
 

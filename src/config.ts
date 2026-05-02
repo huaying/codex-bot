@@ -1,8 +1,10 @@
-import "dotenv/config";
+import { config as loadDotenv } from "dotenv";
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import type { AppConfig, LogLevel, WorkspaceConfig } from "./types.js";
+
+loadDotenv({ override: true, quiet: true });
 
 const envSchema = z.object({
   DISCORD_TOKEN: z.string().min(1),
@@ -17,6 +19,7 @@ const envSchema = z.object({
   CODEX_COMMAND: z.string().optional().default("codex"),
   CODEX_SANDBOX: z.enum(["read-only", "workspace-write", "danger-full-access"]).optional().default("workspace-write"),
   CODEX_FULL_AUTO: z.string().optional().default("true"),
+  CODEX_YOLO: z.string().optional().default("false"),
   CODEX_MODEL: z.string().optional().default(""),
   CODEX_PROFILE: z.string().optional().default(""),
   CODEX_TIMEOUT_SECONDS: z.coerce.number().int().positive().optional().default(840),
@@ -41,8 +44,14 @@ export function loadConfig(): AppConfig {
   }
 
   const codexExtraArgs = parseExtraArgs(raw.CODEX_EXTRA_ARGS_JSON);
+  const codexFullAuto = parseBool(raw.CODEX_FULL_AUTO, true);
+  const codexYolo = parseBool(raw.CODEX_YOLO, false);
 
-  if (raw.CODEX_SANDBOX === "danger-full-access" && parseBool(raw.CODEX_FULL_AUTO, true)) {
+  if (codexYolo && codexFullAuto) {
+    throw new Error("Refusing CODEX_YOLO=true with CODEX_FULL_AUTO=true; set CODEX_FULL_AUTO=false");
+  }
+
+  if (!codexYolo && raw.CODEX_SANDBOX === "danger-full-access" && codexFullAuto) {
     throw new Error("Refusing CODEX_FULL_AUTO=true with CODEX_SANDBOX=danger-full-access");
   }
 
@@ -58,7 +67,8 @@ export function loadConfig(): AppConfig {
     defaultWorkspaceId,
     codexCommand: raw.CODEX_COMMAND,
     codexSandbox: raw.CODEX_SANDBOX,
-    codexFullAuto: parseBool(raw.CODEX_FULL_AUTO, true),
+    codexFullAuto,
+    codexYolo,
     codexModel: emptyToUndefined(raw.CODEX_MODEL),
     codexProfile: emptyToUndefined(raw.CODEX_PROFILE),
     codexTimeoutMs: raw.CODEX_TIMEOUT_SECONDS * 1000,
@@ -191,6 +201,7 @@ function validateExtraArgs(args: string[]): void {
     "--sandbox",
     "--full-auto",
     "--dangerously-bypass-approvals-and-sandbox",
+    "--yolo",
   ]);
   const bannedPrefixes = [
     "-c=",
