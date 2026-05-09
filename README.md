@@ -44,6 +44,34 @@ Start the bridge:
 npm run dev
 ```
 
+Production-style local run:
+
+```bash
+npm run prod
+```
+
+Keep it running under tmux with an automatic restart loop:
+
+```bash
+npm run start:tmux
+npm run status:tmux
+npm run logs:tmux
+```
+
+The tmux runner defaults to `npm run prod`. To run the TypeScript dev entrypoint
+inside tmux instead:
+
+```bash
+CODEX_BOT_RUN_COMMAND="npm run dev" npm run start:tmux
+```
+
+Restart or stop the tmux service:
+
+```bash
+npm run restart:tmux
+npm run stop:tmux
+```
+
 Slash commands are registered on startup when `AUTO_REGISTER_COMMANDS=true`.
 Using `DISCORD_GUILD_ID` during development makes command updates appear quickly.
 
@@ -146,6 +174,9 @@ Discord Developer Portal and update `.env`.
 ## Runtime Notes
 
 - Message sessions use Discord Gateway `messageCreate` events.
+- Fatal process errors are logged and the process exits. Use
+  `npm run start:tmux` for automatic restart after Discord gateway or network
+  failures.
 - `ENABLE_DM_POLLING=false` by default; polling is only a debugging fallback.
 - On startup, the bot performs one recent-DM catch-up to avoid missing messages
   sent during restart.
